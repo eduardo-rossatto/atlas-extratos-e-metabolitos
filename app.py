@@ -425,7 +425,7 @@ DOCS_INFO = [
     ("Estudos de Longa Duração",          "",     "",     "Longa Duracao"),
 ]
 
-TEMPLATE_PATH = "template.xlsx"
+TEMPLATE_PATH = "template_extratos.xlsx"
 
 ABAS = [
     "① Identificação",
@@ -1153,7 +1153,7 @@ def popular_session_state(dados: dict):
 # ── BACKEND — leitura de dimensionamento de embalagens ────────────────────────
 def carregar_backend(embalagem: str) -> dict:
     try:
-        backend_path = os.path.join(os.path.dirname(TEMPLATE_PATH), "BACKEND.xlsx")
+        backend_path = os.path.join(os.path.dirname(TEMPLATE_PATH), "BACKEND_extratos.xlsx")
         if not os.path.exists(backend_path):
             return {}
         wb_bk = openpyxl.load_workbook(backend_path, data_only=True)
