@@ -13,7 +13,7 @@ from openpyxl.drawing.image import Image as XLImage
 
 # ── Página ────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Ficha Técnica B2B — BIOTROP",
+    page_title="ATLAS - E&M",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
