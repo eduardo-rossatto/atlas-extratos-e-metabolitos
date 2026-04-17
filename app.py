@@ -1338,7 +1338,7 @@ window.addEventListener('beforeunload', function (e) {
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="biotrop-header" style="text-align:center">
-  <h1 style="margin:0;padding:0;color:#2D2F33;font-size:28px;letter-spacing:2px;line-height:1.1;font-family:'Space Grotesk',sans-serif;font-weight:700">ATLAS</h1>
+  <h1 style="margin:0;padding:0;color:#2D2F33;font-size:28px;letter-spacing:2px;line-height:1.1;font-family:'Space Grotesk',sans-serif;font-weight:700">ATLAS - E&amp;M</h1>
   <h2 style="margin:2px 0 0 0;padding:0;color:#69695D;font-size:13px;font-weight:400;line-height:1.2;font-family:'Space Grotesk',sans-serif">Agronomic, Technical & Legal Attributes Sheet</h2>
   <p style="margin:6px 0 0 0;padding:0;color:#52b788;font-size:10px;opacity:0.7;font-style:italic;line-height:1">Created by: Eduardo Rossatto</p>
 </div>
