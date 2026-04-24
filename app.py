@@ -412,7 +412,7 @@ html body div[data-testid="stDownloadButton"] > button:hover {
 """, unsafe_allow_html=True)
 
 # ── Constantes ────────────────────────────────────────────────────────────────
-UNIDADES = ["End/ml", "End/L", "UFC/ml", "UFC/L"]
+UNIDADES = ["g/L", "mg/L", "ppm", "%", "mg/kg", "g/kg"]
 
 DOCS_INFO = [
     ("14. Bula",                          "C255", "H255", "Bula"),
@@ -741,7 +741,7 @@ def extrair_dados_bula(texto: str, uploaded_file=None) -> dict:
     import re, json
 
     # ── System prompt compartilhado ───────────────────────────────────────────
-    _system_bula = """Você é um especialista em regulatória de produtos biológicos agrícolas no Brasil (MAPA).
+    _system_bula = """Você é um especialista em regulatória de produtos biológicos agrícolas no Brasil (MAPA), com foco em EXTRATOS VEGETAIS e METABÓLITOS SECUNDÁRIOS.
 
 REGRA MÁXIMA — SEM EXCEÇÕES:
 Extraia SOMENTE dados que estejam PALAVRA POR PALAVRA no texto da bula.
@@ -754,14 +754,19 @@ EC = Concentrado Emulsionável, SL = Concentrado Solúvel, OD = Dispersão em Ó
 SE = Suspoemulsão, FS = Suspensão Concentrada para Tratamento de Sementes.
 SC é SEMPRE líquido/suspensão, NUNCA pó.
 
-CONCENTRAÇÕES:
-Endósporos viáveis = abreviar como End. UFC = Unidades Formadoras de Colônias.
-Unidades válidas: End/ml, End/L, UFC/ml, UFC/L.
-Concentração mínima: copie o valor EXATO com notação científica como aparece na bula.
+CONCENTRAÇÕES (EXTRATOS E METABÓLITOS):
+Unidades válidas: g/L, mg/L, ppm, %, mg/kg, g/kg.
+Concentração mínima: copie o valor EXATO como aparece na bula (ex: '50 g/L', '5%').
+NÃO use unidades microbiológicas (UFC, End., endósporos) — esses produtos são químicos.
+
+INGREDIENTE ATIVO:
+Para extratos e metabólitos, o ingrediente ativo é um composto químico ou conjunto de compostos
+(ex: azadiractina, capsaicina, eugenol, ácido pelargônico, extrato de Quassia amara).
+O marcador químico é o composto principal identificado analiticamente.
 
 CLASSE DE USO DO DEFENSIVO:
 Extraia a classe de uso agronômico: Fungicida, Inseticida, Nematicida, Herbicida,
-Acaricida, Bactericida, ou combinações (ex: Fungicida e Nematicida).
+Acaricida, Bactericida, ou combinações (ex: Fungicida e Inseticida).
 NÃO confundir com classificação toxicológica (Classe I, II, III, IV) — ignore essa."""
 
     prompt = f"""Analise o texto abaixo — ele pode conter uma BULA, uma FICHA TÉCNICA DE QUALIDADE, ou ambos.
@@ -786,16 +791,15 @@ JSON esperado:
   "marca": "nome comercial EXATO como aparece no texto",
   "titular": "empresa registrante EXATA como aparece no texto",
   "n_reg_1": "SOMENTE o número/código após 'Registrado no Ministério da Agricultura e Pecuária - MAPA sob nº'. Retorne APENAS os dígitos ou código alfanumérico, SEM nenhuma descrição adicional.",
-  "info_tec": "descrição técnica do produto (1 a 3 frases copiadas do texto). NÃO inclua nome do microrganismo, cepa ou concentração — esses dados ficam em campos separados. Foque em modo de ação, benefícios e uso agronômico.",
+  "info_tec": "descrição técnica do produto (1 a 3 frases copiadas do texto). NÃO inclua nome do ingrediente ativo ou concentração — esses dados ficam em campos separados. Foque em modo de ação, benefícios e uso agronômico.",
   "classe": "classe de uso agronômico EXATA (ex: Fungicida, Inseticida, Nematicida) — NÃO é classificação toxicológica",
   "formulac": "tipo de formulação por EXTENSO como no texto (ex: Suspensão Concentrada - SC)",
   "armaz": "condições de armazenamento EXATAS como no texto",
   "micros": [
     {{
-      "ingrediente": "nome científico EXATO do microrganismo como no texto",
-      "cepa": "código da cepa EXATO como no texto, string vazia se não houver",
-      "conc_min": "APENAS o número em notação científica (ex: '1,5 x 10^11'). NÃO inclua unidade como endósporos, UFC, /L ou /ml — a unidade vai no campo 'unidade'",
-      "unidade": "OBRIGATÓRIO: End/ml | End/L | UFC/ml | UFC/L — escolha conforme o texto",
+      "ingrediente": "nome EXATO do ingrediente ativo (composto químico, extrato ou metabólito) como no texto",
+      "conc_min": "APENAS o valor numérico da concentração como no texto (ex: '50', '5'). NÃO inclua unidade — a unidade vai no campo 'unidade'",
+      "unidade": "OBRIGATÓRIO: g/L | mg/L | ppm | % | mg/kg | g/kg — escolha conforme o texto",
       "g_l": "valor em g/L EXATO como no texto, string vazia se não aparecer",
       "m_v": "valor em m/V (%) EXATO como no texto, string vazia se não aparecer"
     }}
@@ -811,29 +815,27 @@ JSON esperado:
   ],
   "qualidade": [
     {{
-      "ingrediente": "nome científico do microrganismo — buscar em: 'Estirpe', 'Ingrediente Ativo', nome após 'Bacillus', 'Trichoderma', etc.",
+      "ingrediente": "nome EXATO do ingrediente ativo (composto químico, extrato ou metabólito) — buscar em: 'Ingrediente Ativo', 'Componente', 'Marcador químico'. String vazia se não houver.",
       "estado_fisico": "estado físico — buscar por: 'Estado Físico', 'Aspecto físico'. String vazia se não houver.",
-      "cor": "cor do produto ou colônia — buscar por: 'Cor', ou extrair de 'Características morfológicas' (ex: 'esbranquiçada', 'amarelada'). String vazia se não houver.",
-      "aspecto": "aspecto visual — buscar por: 'Aspecto', ou extrair de 'Características morfológicas' (ex: 'opaco', 'brilhante'). String vazia se não houver.",
-      "gram": "buscar em 'Coloração de Gram': se 'Positiva' → 'Gram-positivo'; se 'Negativa' → 'Gram-negativo'; string vazia se não houver.",
-      "crescimento": "buscar em 'Tipo de crescimento' (ex: 'Aeróbica', 'Anaeróbica', 'Facultativa'). String vazia se não houver.",
-      "meio": "buscar em 'Meio sólido de crescimento', 'Meio de cultura', 'Meio de cultivo'. String vazia se não houver.",
-      "morfologia": "buscar em 'Características morfológicas da colônia' — copie o texto EXATO. String vazia se não houver."
+      "cor": "cor do produto — buscar por: 'Cor'. String vazia se não houver.",
+      "aspecto": "aspecto visual — buscar por: 'Aspecto'. String vazia se não houver.",
+      "ph": "valor ou faixa de pH — buscar por: 'pH', 'Potencial hidrogeniônico'. String vazia se não houver.",
+      "densidade": "densidade ou massa específica — buscar por: 'Densidade', 'Massa específica', 'g/mL', 'g/cm³'. String vazia se não houver.",
+      "miscibilidade": "miscibilidade em água — buscar por: 'Miscibilidade', 'Solubilidade em água', 'Miscível'. String vazia se não houver.",
+      "marcador": "marcador químico principal — nome do composto, número CAS e concentração, como aparecem no texto. String vazia se não houver.",
+      "metodo_analitico": "método analítico para quantificação — buscar por: 'HPLC', 'GC', 'GC-MS', 'CCD', 'Cromatografia'. String vazia se não houver.",
+      "perfil_cromatografico": "perfil ou compostos identificados na cromatografia — copie o texto EXATO. String vazia se não houver."
     }}
   ]
 }}"""
 
     _UNIDADE_MAP = {
-        "endósporos viáveis/ml": "End/ml", "endosporos viáveis/ml": "End/ml",
-        "endósporos viáveis/l": "End/L",   "endosporos viáveis/l": "End/L",
-        "end. viáveis/ml": "End/ml",       "end. viáveis/l": "End/L",
-        "end. viaveis/ml": "End/ml",       "end. viaveis/l": "End/L",
-        "end/ml": "End/ml",                "end/l": "End/L",
-        "ufc/ml": "UFC/ml",                "ufc/l": "UFC/L",
-        "unidades formadoras de colônias/ml": "UFC/ml",
-        "unidades formadoras de colônias/l": "UFC/L",
-        "unidades formadoras de colônia/ml": "UFC/ml",
-        "unidades formadoras de colônia/l": "UFC/L",
+        "g/l": "g/L",   "g/litro": "g/L",
+        "mg/l": "mg/L", "mg/litro": "mg/L",
+        "ppm": "ppm",
+        "mg/kg": "mg/kg",
+        "g/kg": "g/kg",
+        "%": "%", "porcentagem": "%", "por cento": "%",
     }
 
     def _normalizar_dados(dados):
@@ -912,8 +914,8 @@ JSON esperado:
                 prompt_rev_m = f"""Você é um revisor rigoroso de extração de dados de documentos agrícolas.
 REGRA MÁXIMA: Só corrija se a informação estiver EXPLICITAMENTE no texto. NUNCA invente.
 1. Corrija erros claros; 2. Complete campos vazios só se estiver no texto;
-3. Separe alvos agrupados (um objeto por alvo); 4. Verifique g/L e m/V;
-5. Verifique classe de uso (Fungicida/Inseticida/etc); 6. Verifique qualidade (Gram, crescimento, meio, morfologia)
+3. Separe alvos agrupados (um objeto por alvo); 4. Verifique g/L, mg/L, ppm e m/V;
+5. Verifique classe de uso (Fungicida/Inseticida/etc); 6. Verifique qualidade (pH, densidade, miscibilidade, marcador, método analítico, perfil cromatográfico)
 Retorne o JSON COMPLETO no mesmo formato, sem markdown.
 
 DADOS EXTRAÍDOS:
@@ -1122,11 +1124,10 @@ def popular_session_state(dados: dict):
         st.session_state["qtd_micro"] = min(len(micros), 6)
         for i, m in enumerate(micros[:6]):
             st.session_state[f"ing_{i}"]  = m.get("ingrediente", "")
-            st.session_state[f"cepa_{i}"] = m.get("cepa", "")
             st.session_state[f"cmin_{i}"] = m.get("conc_min", "")
             st.session_state[f"gl_{i}"]   = m.get("g_l", "")
             st.session_state[f"mv_{i}"]   = m.get("m_v", "")
-            st.session_state[f"uni_{i}"]  = m.get("unidade", "End/ml")
+            st.session_state[f"uni_{i}"]  = m.get("unidade", "g/L")
 
     rec_rows = dados.get("rec_rows", [])
     if rec_rows:
@@ -1141,8 +1142,9 @@ def popular_session_state(dados: dict):
     for i, q in enumerate(dados.get("qualidade", [])):
         for key, campo in [("q_ing", "ingrediente"), ("q_est", "estado_fisico"),
                            ("q_cor", "cor"), ("q_asp", "aspecto"),
-                           ("q_gram", "gram"), ("q_cresc", "crescimento"),
-                           ("q_meio", "meio"), ("q_morf", "morfologia")]:
+                           ("q_ph", "ph"), ("q_dens", "densidade"),
+                           ("q_misc", "miscibilidade"), ("q_marc", "marcador"),
+                           ("q_metodo", "metodo_analitico"), ("q_crom", "perfil_cromatografico")]:
             st.session_state[f"{key}_{i}"] = q.get(campo, "")
 
     # Sinaliza que precisa de um segundo rerun para widgets novos lerem o session_state
@@ -1463,22 +1465,20 @@ with t2:
     step_info(2, "Concentrações e garantias", proxima="3. Classificação")
 
     sec("2. CONCENTRAÇÕES E GARANTIAS")
-    qtd_micro = st.radio("Quantos microrganismos?", [1, 2, 3, 4, 5, 6], horizontal=True, key="qtd_micro")
+    qtd_micro = st.radio("Quantos ingredientes ativos?", [1, 2, 3, 4, 5, 6], horizontal=True, key="qtd_micro")
 
     micros = []
     for i in range(qtd_micro):
-        titulo = f"Microrganismo {i+1}" if qtd_micro > 1 else "Dados do microrganismo"
+        titulo = f"Ingrediente Ativo {i+1}" if qtd_micro > 1 else "Dados do ingrediente ativo"
         sec(titulo)
         c1, c2 = st.columns(2)
         ing  = c1.text_input("Ingrediente ativo", key=f"ing_{i}")
-        cepa = c2.text_input("CEPA",              key=f"cepa_{i}")
-        c1, c2 = st.columns(2)
-        cmin = c1.text_input("Conc. Mínima (ex: 1,5 x 10^11)", key=f"cmin_{i}")
         uni  = c2.selectbox("Unidade", UNIDADES, key=f"uni_{i}")
         c1, c2 = st.columns(2)
-        g_l  = c1.text_input("g/L",  placeholder="opcional", key=f"gl_{i}")
-        m_v  = c2.text_input("m/V",  placeholder="opcional", key=f"mv_{i}")
-        micros.append(dict(ingrediente=ing, cepa=cepa, conc_min=cmin,
+        cmin = c1.text_input("Conc. Mínima (ex: 50)", key=f"cmin_{i}")
+        g_l  = c2.text_input("g/L",  placeholder="opcional", key=f"gl_{i}")
+        m_v  = st.text_input("m/V",  placeholder="opcional", key=f"mv_{i}")
+        micros.append(dict(ingrediente=ing, conc_min=cmin,
                            unidade=uni, g_l=g_l, m_v=m_v))
 
     _, col_btn = st.columns([3, 1])
@@ -1556,12 +1556,12 @@ with t4:
 
 # ── Aba 5 — Qualidade ─────────────────────────────────────────────────────────
 with t5:
-    step_info(5, "Qualidade, análises físico-químicas e morfologia", proxima="6. CoA / Estabilidade")
+    step_info(5, "Qualidade, análises físico-químicas e marcadores", proxima="6. CoA / Estabilidade")
 
     # 7. Ficha técnica de qualidade
     qualidade = []
     for i in range(qtd_micro):
-        titulo = f"7. FICHA TÉCNICA DE QUALIDADE — Microrganismo {i+1}" \
+        titulo = f"7. FICHA TÉCNICA DE QUALIDADE — Ingrediente Ativo {i+1}" \
                  if qtd_micro > 1 else "7. FICHA TÉCNICA DE QUALIDADE"
         sec(titulo)
         c1, c2 = st.columns(2)
@@ -1574,14 +1574,18 @@ with t5:
         cor   = c1.text_input("Cor",                 placeholder="opcional", key=f"q_cor_{i}")
         asp   = c2.text_input("Aspecto",              placeholder="opcional", key=f"q_asp_{i}")
         c1, c2 = st.columns(2)
-        gram  = c1.text_input("Coloração de Gram",   placeholder="opcional", key=f"q_gram_{i}")
-        cresc = c2.text_input("Tipo de crescimento", placeholder="opcional", key=f"q_cresc_{i}")
-        meio  = st.text_input("Meio sólido",          placeholder="opcional", key=f"q_meio_{i}")
-        morf  = st.text_area("Características morfológicas", placeholder="opcional",
-                              key=f"q_morf_{i}", height=80)
+        ph    = c1.text_input("pH",                  placeholder="opcional", key=f"q_ph_{i}")
+        dens  = c2.text_input("Densidade",            placeholder="opcional", key=f"q_dens_{i}")
+        c1, c2 = st.columns(2)
+        misc  = c1.text_input("Miscibilidade",        placeholder="opcional", key=f"q_misc_{i}")
+        marc  = c2.text_input("Marcador químico",     placeholder="opcional", key=f"q_marc_{i}")
+        metodo = st.text_input("Método analítico",    placeholder="opcional", key=f"q_metodo_{i}")
+        crom  = st.text_area("Perfil cromatográfico", placeholder="opcional",
+                              key=f"q_crom_{i}", height=80)
         qualidade.append(dict(ingrediente=ing_q, estado_fisico=est_f, cor=cor,
-                              aspecto=asp, gram=gram, crescimento=cresc,
-                              meio=meio, morfologia=morf))
+                              aspecto=asp, ph=ph, densidade=dens,
+                              miscibilidade=misc, marcador=marc,
+                              metodo_analitico=metodo, perfil_cromatografico=crom))
 
     # 8. Resultado das análises físico-químicas e microbiológicas
     sec("8. RESULTADO DAS ANÁLISES FÍSICO-QUÍMICAS E MICROBIOLÓGICAS")
@@ -1597,7 +1601,7 @@ with t5:
             c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
             _name_col, _unit_col = c1.columns([2, 1])
             _name_col.write(nome)
-            unidade_conc = _unit_col.selectbox("", ["End/ml", "End/L", "UFC/ml", "UFC/L"],
+            unidade_conc = _unit_col.selectbox("", UNIDADES,
                                                key="unidade_conc", label_visibility="collapsed")
             _l, _m, _r = c2.columns([1, 2, 1])
             aplic = _m.checkbox("", key=f"ap_{nome}", label_visibility="collapsed")
@@ -1885,11 +1889,10 @@ with t10:
             ph["marca"] = marca
             ph["n_reg_1"] = n_reg_1
 
-            # Seção 2 (até 6 micros)
+            # Seção 2 (até 6 ingredientes ativos)
             for i, m in enumerate(micros[:6]):
                 n = i + 1
                 ph[f"ing_{n}"] = m["ingrediente"]
-                ph[f"cepa_{n}"] = m["cepa"]
                 ph[f"cmin_{n}"] = m["conc_min"]
                 ph[f"uni_{n}"] = m["unidade"]
                 ph[f"gl_{n}"] = m.get("g_l", "")
@@ -1979,10 +1982,11 @@ with t10:
                 ph[f"vol_{n}"] = rv.get("volume", "")
                 ph[f"num_{n}"] = rv.get("numero", "")
 
-            # Seção 8 — Qualidade (micros 1-6)
+            # Seção 8 — Qualidade (ingredientes ativos 1-6)
             _q_campos = ["ingrediente","estado_fisico","cor","aspecto",
-                         "gram","crescimento","meio","morfologia"]
-            _q_keys   = ["ing","est","cor","asp","gram","cresc","meio","morf"]
+                         "ph","densidade","miscibilidade","marcador",
+                         "metodo_analitico","perfil_cromatografico"]
+            _q_keys   = ["ing","est","cor","asp","ph","dens","misc","marc","metodo","crom"]
             for i, vq in enumerate(qualidade):
                 n = i + 1
                 for key, campo in zip(_q_keys, _q_campos):
@@ -2094,7 +2098,7 @@ with t10:
                                     cell.font = Font(color="000000")
                                 # Alinhamento por tópico
                                 _left_keys = {"cod_pa","cod_int","marca","titular","info_tec"}
-                                _left_pfx  = ("q_ing_","q_est_","q_cor_","q_asp_","q_gram_","q_cresc_","q_meio_","q_morf_","desc_fig")
+                                _left_pfx  = ("q_ing_","q_est_","q_cor_","q_asp_","q_ph_","q_dens_","q_misc_","q_marc_","q_metodo_","q_crom_","desc_fig")
                                 _h = "left" if (key in _left_keys or any(key.startswith(p) for p in _left_pfx)) else "center"
                                 _v = "top" if key.startswith("desc_fig") else "center"
                                 cell.alignment = Alignment(horizontal=_h,
