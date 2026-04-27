@@ -1457,7 +1457,7 @@ with t1:
 
     sec("PRODUÇÃO")
     c1, c2 = st.columns(2)
-    lote_min      = c1.text_input("Lote mínimo e produção", key="lote_min",
+    lote_min      = c1.text_input("Lote mínimo de produção", key="lote_min",
                                    placeholder="Ex: 32 mil litros")
     multiplo_prod = c2.text_input("Múltiplo de produção", key="multiplo_prod",
                                    placeholder="Ex: 16, 36, 64")
