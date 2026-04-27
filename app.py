@@ -1455,6 +1455,13 @@ with t1:
     sec("5. INFORMAÇÕES TÉCNICAS SOBRE O PRODUTO")
     info_tec = st.text_area("Descrição técnica", height=100, placeholder="opcional", key="info_tec")
 
+    sec("PRODUÇÃO")
+    c1, c2 = st.columns(2)
+    lote_min      = c1.text_input("Lote mínimo e produção", key="lote_min",
+                                   placeholder="Ex: 32 mil litros")
+    multiplo_prod = c2.text_input("Múltiplo de produção", key="multiplo_prod",
+                                   placeholder="Ex: 16, 36, 64")
+
     _, col_btn = st.columns([3, 1])
     if col_btn.button("Próxima Página →", key="next_1", use_container_width=True):
         st.session_state.next_tab = 1
@@ -1909,6 +1916,10 @@ with t10:
             # Seção 4 e 5
             ph["titular"] = titular
             ph["info_tec"] = info_tec
+
+            # Produção
+            ph["lote_min"]      = lote_min
+            ph["multiplo_prod"] = multiplo_prod
 
             # Seção 20-26 — Embalagens (BACKEND)
             # Placeholders SEM sufixo (_a/_b/_c) → não preencher → mostram "-" no Excel
