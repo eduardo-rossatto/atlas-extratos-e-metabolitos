@@ -2,30 +2,59 @@ name: Keep Alive — ATLAS E&M
 
 on:
   schedule:
-    - cron: '0 9 * * *'   # 09:00 UTC (06:00 Brasília)
-    - cron: '0 21 * * *'  # 21:00 UTC (18:00 Brasília)
+    - cron: '0 7 * * *'   # 04:00 Brasília
+    - cron: '0 13 * * *'  # 10:00 Brasília
+    - cron: '0 19 * * *'  # 16:00 Brasília
+    - cron: '0 1 * * *'   # 22:00 Brasília
   workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Playwright
+      - uses: actions/checkout@v4
+
+      - name: Keepalive — evita GitHub desativar workflows
+        uses: gautamkrishnar/keepalive-workflow@v2
+
+      - name: Instalar Playwright
         run: |
           pip install playwright
           playwright install chromium --with-deps
 
-      - name: Visitar ATLAS E&M
+      - name: Acordar ATLAS E&M
         run: |
           python - <<'EOF'
           from playwright.sync_api import sync_playwright
+
           url = "https://atlas-extratos-e-metabolitos.streamlit.app/"
+
           with sync_playwright() as p:
               browser = p.chromium.launch()
               page = browser.new_page()
-              print(f"Abrindo {url} ...")
-              page.goto(url, wait_until="networkidle", timeout=120000)
-              page.wait_for_timeout(15000)
-              print("OK — sessão estabelecida.")
+              print(f"Abrindo {url}...")
+              page.goto(url, wait_until="domcontentloaded", timeout=60000)
+              page.wait_for_timeout(4000)
+
+              woke = False
+              for text in ["Yes, get this app back up!", "Wake up", "Yes"]:
+                  try:
+                      el = page.get_by_text(text, exact=False)
+                      if el.count() > 0 and el.first.is_visible():
+                          print(f"App dormindo — clicando '{text}'...")
+                          el.first.click()
+                          woke = True
+                          break
+                  except Exception:
+                      pass
+
+              wait_ms = 60000 if woke else 30000
+              print(f"Aguardando {wait_ms // 1000}s...")
+              page.wait_for_timeout(wait_ms)
+              print("OK — sessão concluída.")
               browser.close()
           EOF
