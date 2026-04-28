@@ -20,11 +20,12 @@ jobs:
 
       - name: Keepalive — evita GitHub desativar workflows
         uses: gautamkrishnar/keepalive-workflow@v2
+        continue-on-error: true
 
       - name: Instalar Playwright
         run: |
           pip install playwright
-          playwright install chromium --with-deps
+          playwright install --with-deps chromium
 
       - name: Acordar ATLAS E&M
         run: |
@@ -37,11 +38,11 @@ jobs:
               browser = p.chromium.launch()
               page = browser.new_page()
               print(f"Abrindo {url}...")
-              page.goto(url, wait_until="domcontentloaded", timeout=60000)
-              page.wait_for_timeout(4000)
+              page.goto(url, wait_until="domcontentloaded", timeout=90000)
+              page.wait_for_timeout(5000)
 
               woke = False
-              for text in ["Yes, get this app back up!", "Wake up", "Yes"]:
+              for text in ["Yes, get this app back up!", "Yes, get it back up", "Wake up", "Yes"]:
                   try:
                       el = page.get_by_text(text, exact=False)
                       if el.count() > 0 and el.first.is_visible():
@@ -52,7 +53,7 @@ jobs:
                   except Exception:
                       pass
 
-              wait_ms = 60000 if woke else 30000
+              wait_ms = 120000 if woke else 30000
               print(f"Aguardando {wait_ms // 1000}s...")
               page.wait_for_timeout(wait_ms)
               print("OK — sessão concluída.")
