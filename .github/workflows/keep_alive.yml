@@ -60,9 +60,18 @@ jobs:
                   except Exception:
                       pass
 
-              wait_ms = 60000 if woke else 15000
-              print(f"Aguardando {wait_ms // 1000}s...")
-              page.wait_for_timeout(wait_ms)
+              if woke:
+                  print("Aguardando app iniciar (até 3 min)...")
+                  try:
+                      page.wait_for_selector('[data-testid="stApp"]', timeout=180000)
+                      print("App iniciado com sucesso.")
+                  except Exception:
+                      print("Timeout aguardando app — seguindo mesmo assim.")
+                  page.wait_for_timeout(10000)
+              else:
+                  print("App já estava ativo.")
+                  page.wait_for_timeout(15000)
+
               print("OK — sessão concluída.")
               browser.close()
           EOF
