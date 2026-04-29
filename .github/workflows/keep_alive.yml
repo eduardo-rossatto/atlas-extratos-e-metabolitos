@@ -2,10 +2,7 @@ name: Keep Alive — ATLAS E&M
 
 on:
   schedule:
-    - cron: '0 7 * * *'   # 04:00 Brasília
-    - cron: '0 13 * * *'  # 10:00 Brasília
-    - cron: '0 19 * * *'  # 16:00 Brasília
-    - cron: '0 1 * * *'   # 22:00 Brasília
+    - cron: '0 */3 * * *'   # a cada 3h: 00, 03, 06, 09, 12, 15, 18, 21 UTC
   workflow_dispatch:
 
 permissions:
@@ -26,10 +23,16 @@ jobs:
           git push
         continue-on-error: true
 
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}
+
       - name: Instalar Playwright
         run: |
           pip install playwright
-          playwright install --with-deps chromium
+          playwright install chromium --with-deps
 
       - name: Acordar ATLAS E&M
         run: |
@@ -42,8 +45,8 @@ jobs:
               browser = p.chromium.launch()
               page = browser.new_page()
               print(f"Abrindo {url}...")
-              page.goto(url, wait_until="domcontentloaded", timeout=90000)
-              page.wait_for_timeout(5000)
+              page.goto(url, wait_until="domcontentloaded", timeout=60000)
+              page.wait_for_timeout(4000)
 
               woke = False
               for text in ["Yes, get this app back up!", "Yes, get it back up", "Wake up", "Yes"]:
@@ -57,7 +60,7 @@ jobs:
                   except Exception:
                       pass
 
-              wait_ms = 120000 if woke else 30000
+              wait_ms = 60000 if woke else 15000
               print(f"Aguardando {wait_ms // 1000}s...")
               page.wait_for_timeout(wait_ms)
               print("OK — sessão concluída.")
